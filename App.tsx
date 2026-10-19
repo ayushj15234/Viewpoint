@@ -1,32 +1,45 @@
-﻿import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-type Hike = { id: string; name: string; enjoyment: number; difficulty: number; notes: string };
+import { Hike, FriendReview } from './src/hikes';
+import { colors, FriendsFeed, HikeDetails } from './src/HikeScreens';
 type Tab = 'My hikes' | 'Friends';
-const green = '#245B45';
+const green = colors.green;
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('My hikes');
   const [hikes, setHikes] = useState<Hike[]>([]);
   const [adding, setAdding] = useState(false);
+  const [selectedHike, setSelectedHike] = useState<Hike | FriendReview | null>(null);
   const [name, setName] = useState('');
+  const [initialName, setInitialName] = useState('');
   const [notes, setNotes] = useState('');
   const [enjoyment, setEnjoyment] = useState(0);
   const [difficulty, setDifficulty] = useState(0);
-  function openLog() {
-    setName(''); setNotes(''); setEnjoyment(0); setDifficulty(0); setAdding(true);
+  useEffect(() => {
+    if (!selectedHike) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { setSelectedHike(null); return true; });
+    return () => subscription.remove();
+  }, [selectedHike]);
+  function openLog(hikeName = '') {
+    setInitialName(hikeName);
+    setName(hikeName); setNotes(''); setEnjoyment(0); setDifficulty(0); setAdding(true);
   }
   function saveHike() {
     if (!name.trim() || !enjoyment || !difficulty) return;
     setHikes(current => [{ id: Date.now().toString(), name: name.trim(), enjoyment, difficulty, notes: notes.trim() }, ...current]);
-    setAdding(false); setTab('My hikes');
+    setAdding(false); setSelectedHike(null); setTab('My hikes');
   }
   function closeLog() {
-    if (name.trim() || notes.trim() || enjoyment || difficulty) {
+    if (name !== initialName || notes.trim() || enjoyment || difficulty) {
+      if (Platform.OS === 'web') {
+        if (window.confirm('Discard this hike? Your changes haven’t been saved.')) setAdding(false);
+        return;
+      }
       Alert.alert('Discard this hike?', 'Your changes haven’t been saved.', [
         { text: 'Keep editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: () => setAdding(false) },
@@ -38,9 +51,10 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={s.safe}>
         <StatusBar style="dark" />
+        {selectedHike ? <HikeDetails hike={selectedHike} onBack={() => setSelectedHike(null)} onLog={openLog} /> : <>
         <View style={s.header}>
           <View style={s.brand}><FontAwesome5 name="mountain" size={22} color={green} /><Text style={s.wordmark}>viewpoint</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Log a hike" onPress={openLog} style={({ pressed }) => [s.add, pressed && s.pressed]}><Feather name="plus" size={24} color="white" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Log a hike" onPress={() => openLog()} style={({ pressed }) => [s.add, pressed && s.pressed]}><Feather name="plus" size={24} color="white" /></Pressable>
         </View>
         <View style={s.intro}>
           <Text accessibilityRole="header" style={s.title}>{tab}</Text>
@@ -49,20 +63,21 @@ export default function App() {
         <View accessibilityRole="tablist" style={s.tabs}>
           {(['My hikes', 'Friends'] as const).map(item => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => setTab(item)} style={[s.tab, tab === item && s.activeTab]}><Text style={[s.tabText, tab === item && s.activeText]}>{item}</Text></Pressable>)}
         </View>
-        {tab === 'My hikes' && hikes.length > 0 ? (
+        {tab === 'Friends' ? <FriendsFeed onOpen={setSelectedHike} /> : hikes.length > 0 ? (
           <ScrollView contentContainerStyle={s.list}>
             <Text style={s.count}>{hikes.length} {hikes.length === 1 ? 'hike' : 'hikes'} logged</Text>
-            {hikes.map(hike => <View key={hike.id} style={s.hike}><Text style={s.hikeName}>{hike.name}</Text><Text style={s.ratingLine}>Enjoyment {hike.enjoyment}/5 · Difficulty {hike.difficulty}/5</Text>{!!hike.notes && <Text style={s.notes}>{hike.notes}</Text>}</View>)}
+            {hikes.map(hike => <Pressable key={hike.id} onPress={() => setSelectedHike(hike)} accessibilityRole="button" accessibilityLabel={`View ${hike.name}`} style={({ pressed }) => [s.hike, pressed && s.pressed]}><View style={s.hikeHeading}><Text style={[s.hikeName, s.flex]}>{hike.name}</Text><Feather name="chevron-right" size={22} color={green} /></View><Text style={s.ratingLine}>Enjoyment {hike.enjoyment}/5 {"\u00b7"} Difficulty {hike.difficulty}/5</Text>{!!hike.notes && <Text numberOfLines={2} style={s.notes}>{hike.notes}</Text>}</Pressable>)}
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={s.empty}>
-            <Feather name={tab === 'My hikes' ? 'map' : 'users'} size={36} color={green} />
-            <Text style={s.emptyTitle}>{tab === 'My hikes' ? 'Your first hike starts here' : 'Better trails, together'}</Text>
-            <Text style={s.emptyBody}>{tab === 'My hikes' ? 'Log a hike you’ve done. Rate the climb, remember the view.' : 'Your friends’ hikes and ratings will appear here once friend accounts are connected.'}</Text>
-            {tab === 'My hikes' && <Pressable accessibilityRole="button" onPress={openLog} style={({ pressed }) => [s.primary, pressed && s.pressed]}><Text style={s.primaryText}>Log your first hike</Text></Pressable>}
+            <Feather name="map" size={36} color={green} />
+            <Text style={s.emptyTitle}>Your first hike starts here</Text>
+            <Text style={s.emptyBody}>Log a hike you’ve done. Rate the climb, remember the view.</Text>
+            <Pressable accessibilityRole="button" onPress={() => openLog()} style={({ pressed }) => [s.primary, pressed && s.pressed]}><Text style={s.primaryText}>Log your first hike</Text></Pressable>
           </ScrollView>
         )}
         <Text style={s.previewNote}>Early preview · Hikes stay until the app restarts</Text>
+        </>}
         <Modal visible={adding} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeLog}>
           <SafeAreaView style={s.safe}>
             <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -93,34 +108,35 @@ function Rating({ label, description, value, onChange }: { label: string; descri
   </View>;
 }
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFBF8' }, flex: { flex: 1 },
+  safe: { flex: 1, backgroundColor: colors.cream }, flex: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  wordmark: { fontSize: 23, fontWeight: '600', letterSpacing: -0.8, color: '#253C30' },
+  wordmark: { fontSize: 23, fontWeight: '600', letterSpacing: -0.8, color: colors.green },
   add: { width: 48, height: 48, backgroundColor: green, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.7 },
   intro: { paddingHorizontal: 24, paddingBottom: 24 },
-  title: { fontSize: 34, fontWeight: '700', letterSpacing: -0.9, color: '#1F2B24' },
-  subtitle: { fontSize: 16, lineHeight: 23, color: '#626B64', marginTop: 7 },
-  tabs: { flexDirection: 'row', paddingHorizontal: 24, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#CFD5CE', gap: 28 },
+  title: { fontSize: 34, fontWeight: '700', letterSpacing: -0.9, color: colors.ink },
+  subtitle: { fontSize: 16, lineHeight: 23, color: colors.muted, marginTop: 7 },
+  tabs: { flexDirection: 'row', paddingHorizontal: 24, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, gap: 28 },
   tab: { minHeight: 48, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: green }, tabText: { fontSize: 16, color: '#626B64', fontWeight: '500' }, activeText: { color: green, fontWeight: '600' },
+  activeTab: { borderBottomColor: green }, tabText: { fontSize: 16, color: colors.muted, fontWeight: '500' }, activeText: { color: green, fontWeight: '600' },
   empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 48 },
-  emptyTitle: { fontSize: 22, fontWeight: '600', color: '#1F2B24', textAlign: 'center', marginTop: 24 },
-  emptyBody: { fontSize: 16, color: '#626B64', lineHeight: 24, textAlign: 'center', maxWidth: 300, marginTop: 10 },
+  emptyTitle: { fontSize: 22, fontWeight: '600', color: colors.ink, textAlign: 'center', marginTop: 24 },
+  emptyBody: { fontSize: 16, color: colors.muted, lineHeight: 24, textAlign: 'center', maxWidth: 300, marginTop: 10 },
   primary: { marginTop: 28, minHeight: 50, paddingHorizontal: 24, paddingVertical: 14, backgroundColor: green, borderRadius: 12, justifyContent: 'center' },
   primaryText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' },
-  previewNote: { fontSize: 12, color: '#626B64', textAlign: 'center', paddingHorizontal: 24, paddingVertical: 16 },
-  list: { paddingHorizontal: 24, paddingBottom: 24 }, count: { fontSize: 13, color: '#626B64', marginTop: 22, marginBottom: 4 },
-  hike: { paddingVertical: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#CFD5CE' }, hikeName: { fontSize: 20, fontWeight: '600', color: '#1F2B24' },
-  ratingLine: { fontSize: 14, lineHeight: 22, color: green, marginTop: 7 }, notes: { fontSize: 16, lineHeight: 24, color: '#626B64', marginTop: 10 },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#CFD5CE', paddingHorizontal: 12, paddingVertical: 8 },
+  previewNote: { fontSize: 12, color: colors.muted, textAlign: 'center', paddingHorizontal: 24, paddingVertical: 16 },
+  list: { paddingHorizontal: 24, paddingBottom: 24 }, count: { fontSize: 13, color: colors.muted, marginTop: 22, marginBottom: 4 },
+  hikeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  hike: { paddingVertical: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line }, hikeName: { fontSize: 20, fontWeight: '600', color: colors.ink },
+  ratingLine: { fontSize: 14, lineHeight: 22, color: green, marginTop: 7 }, notes: { fontSize: 16, lineHeight: 24, color: colors.muted, marginTop: 10 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, paddingHorizontal: 12, paddingVertical: 8 },
   textButton: { minWidth: 64, minHeight: 48, justifyContent: 'center', alignItems: 'center' }, link: { color: green, fontSize: 17 }, disabled: { color: '#777C76' },
-  sheetTitle: { color: '#1F2B24', fontSize: 17, fontWeight: '600' }, form: { padding: 24, paddingBottom: 48 },
-  label: { fontSize: 17, color: '#1F2B24', fontWeight: '600', marginBottom: 10 }, optional: { fontWeight: '400', color: '#626B64', fontSize: 15 },
-  input: { borderWidth: 1, borderColor: '#BCC6BC', borderRadius: 10, padding: 14, fontSize: 17, color: '#1F2B24', backgroundColor: '#FFFFFF', minHeight: 52 }, notesInput: { minHeight: 120 },
-  rating: { marginVertical: 28 }, ratingHelp: { color: '#626B64', fontSize: 14, marginBottom: 14 }, ratingOptions: { flexDirection: 'row', gap: 10 },
+  sheetTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' }, form: { padding: 24, paddingBottom: 48 },
+  label: { fontSize: 17, color: colors.ink, fontWeight: '600', marginBottom: 10 }, optional: { fontWeight: '400', color: colors.muted, fontSize: 15 },
+  input: { borderWidth: 1, borderColor: '#BCC6BC', borderRadius: 10, padding: 14, fontSize: 17, color: colors.ink, backgroundColor: '#FFFFFF', minHeight: 52 }, notesInput: { minHeight: 120 },
+  rating: { marginVertical: 28 }, ratingHelp: { color: colors.muted, fontSize: 14, marginBottom: 14 }, ratingOptions: { flexDirection: 'row', gap: 10 },
   ratingButton: { flex: 1, minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: '#BCC6BC', alignItems: 'center', justifyContent: 'center' },
-  selectedRating: { backgroundColor: green, borderColor: green }, ratingNumber: { color: '#1F2B24', fontSize: 17, fontWeight: '500' },
+  selectedRating: { backgroundColor: green, borderColor: green }, ratingNumber: { color: colors.ink, fontSize: 17, fontWeight: '500' },
 });
 

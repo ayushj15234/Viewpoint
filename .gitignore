@@ -42,3 +42,6 @@ yarn-error.*
 
 # Local validation artifacts
 /tmp/
+
+# Browser test artifacts
+/.playwright-cli/
