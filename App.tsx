@@ -1,41 +1,65 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Hike, FriendReview } from './src/hikes';
-import { colors, FriendsFeed, HikeDetails } from './src/HikeScreens';
-type Tab = 'My hikes' | 'Friends';
+import { friendReviews, Hike, FriendReview } from './src/hikes';
+import { YourLists } from './src/YourLists';
+import { comparisonBounds, personalScore } from './src/ranking';
+import { colors, HikeDetails } from './src/HikeScreens';
+import { HomeScreen, SettingsScreen } from './src/HomeScreen';
+import { RankingsScreen, ProfileScreen } from './src/PersonalScreens';
+type Tab = 'My hikes' | 'Friends' | 'Rankings' | 'Profile';
 const green = colors.green;
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('My hikes');
+  const [tab, setTab] = useState<Tab>('Friends');
+  const [settings, setSettings] = useState(false);
+  const [saved, setSaved] = useState<string[]>([]);
   const [hikes, setHikes] = useState<Hike[]>([]);
   const [adding, setAdding] = useState(false);
   const [selectedHike, setSelectedHike] = useState<Hike | FriendReview | null>(null);
   const [name, setName] = useState('');
   const [initialName, setInitialName] = useState('');
   const [notes, setNotes] = useState('');
-  const [enjoyment, setEnjoyment] = useState(0);
+  const [sentiment, setSentiment] = useState<Hike['sentiment']>();
+  const [location, setLocation] = useState('');
+  const [duration, setDuration] = useState('');
+  const [length, setLength] = useState('');
+  const [bounds, setBounds] = useState<{ low: number; high: number } | null>(null);
+  const [formError, setFormError] = useState('');
   const [difficulty, setDifficulty] = useState(0);
   useEffect(() => {
-    if (!selectedHike) return;
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { setSelectedHike(null); return true; });
+    if (!selectedHike && !settings) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { setSelectedHike(null); setSettings(false); return true; });
     return () => subscription.remove();
-  }, [selectedHike]);
+  }, [selectedHike, settings]);
   function openLog(hikeName = '') {
     setInitialName(hikeName);
-    setName(hikeName); setNotes(''); setEnjoyment(0); setDifficulty(0); setAdding(true);
+    setName(hikeName); setNotes(''); setSentiment(undefined); setDifficulty(0); setLocation(''); setDuration(''); setLength(''); setBounds(null); setFormError(''); setAdding(true);
   }
   function saveHike() {
-    if (!name.trim() || !enjoyment || !difficulty) return;
-    setHikes(current => [{ id: Date.now().toString(), name: name.trim(), enjoyment, difficulty, notes: notes.trim() }, ...current]);
+    if (!canSave) return;
+    if (hikes.some(hike => hike.name.toLowerCase() === name.trim().toLowerCase())) { setFormError('This hike is already ranked. Add a different hike to build your list.'); return; }
+    const next = comparisonBounds(hikes, sentiment);
+    if (next.low === next.high) finishRanking(next.low); else setBounds(next);
+  }
+  function finishRanking(index: number) {
+    const hike: Hike = { id: Date.now().toString(), name: name.trim(), enjoyment: 0, sentiment, difficulty, notes: notes.trim(), location: location.trim() || undefined, durationMinutes: duration.trim() ? Number(duration) : undefined, lengthMiles: length.trim() ? Number(length) : undefined };
+    setHikes(current => [...current.slice(0, index), hike, ...current.slice(index)]);
+    setBounds(null);
     setAdding(false); setSelectedHike(null); setTab('My hikes');
   }
+  function compare(preferNew: boolean) {
+    if (!bounds) return;
+    const mid = Math.floor((bounds.low + bounds.high) / 2);
+    const next = preferNew ? { low: bounds.low, high: mid } : { low: mid + 1, high: bounds.high };
+    if (next.low === next.high) finishRanking(next.low); else setBounds(next);
+  }
   function closeLog() {
-    if (name !== initialName || notes.trim() || enjoyment || difficulty) {
+    if (name !== initialName || notes.trim() || sentiment || difficulty || location.trim() || duration.trim() || length.trim()) {
       if (Platform.OS === 'web') {
         if (window.confirm('Discard this hike? Your changes haven’t been saved.')) setAdding(false);
         return;
@@ -46,53 +70,39 @@ export default function App() {
       ]);
     } else setAdding(false);
   }
-  const canSave = Boolean(name.trim() && enjoyment && difficulty);
+  const canSave = Boolean(name.trim() && sentiment && difficulty && (!duration.trim() || (Number.isFinite(Number(duration)) && Number(duration) > 0)) && (!length.trim() || (Number.isFinite(Number(length)) && Number(length) > 0)));
   return (
     <SafeAreaProvider>
       <SafeAreaView style={s.safe}>
         <StatusBar style="dark" />
-        {selectedHike ? <HikeDetails hike={selectedHike} onBack={() => setSelectedHike(null)} onLog={openLog} /> : <>
+        {settings ? <SettingsScreen onBack={() => setSettings(false)} /> : selectedHike ? <HikeDetails hike={selectedHike} onBack={() => setSelectedHike(null)} onLog={openLog} personalScore={personalScore(selectedHike.id, hikes)} rankedCount={hikes.length} backLabel={tab === 'Rankings' ? 'Your rankings' : tab === 'Friends' ? 'Feed' : 'Your lists'} /> : <>
         <View style={s.header}>
           <View style={s.brand}><FontAwesome5 name="mountain" size={22} color={green} /><Text style={s.wordmark}>viewpoint</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Log a hike" onPress={() => openLog()} style={({ pressed }) => [s.add, pressed && s.pressed]}><Feather name="plus" size={24} color="white" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={() => setSettings(true)} style={s.menu}><Feather name="menu" size={25} color={green} /></Pressable>
         </View>
-        <View style={s.intro}>
-          <Text accessibilityRole="header" style={s.title}>{tab}</Text>
-          <Text style={s.subtitle}>{tab === 'My hikes' ? 'Every trail has a story. Keep yours here.' : 'A little inspiration from your people.'}</Text>
+        {tab === 'Friends' ? <HomeScreen saved={saved} onSave={id => setSaved(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])} onOpen={setSelectedHike} /> : tab === 'Rankings' ? <RankingsScreen hikes={hikes} onOpen={setSelectedHike} onAdd={() => openLog()} /> : tab === 'Profile' ? <ProfileScreen hikes={hikes} savedCount={saved.length} onLists={() => setTab('My hikes')} onRankings={() => setTab('Rankings')} onSettings={() => setSettings(true)} /> : <YourLists hikes={hikes} saved={friendReviews.filter(hike => saved.includes(hike.id))} onOpen={setSelectedHike} />}
+
+        <View style={s.bottomNav}>
+          {([{ tab: 'Friends', label: 'Feed', icon: 'home' }, { tab: 'My hikes', label: 'Your lists', icon: 'list' }, { tab: 'add', label: 'Log a hike', icon: 'plus' }, { tab: 'Rankings', label: 'Rankings', icon: 'bar-chart-2' }, { tab: 'Profile', label: 'Profile', icon: 'user' }] as const).map(item => item.tab === 'add' ? <View key="add" style={s.navSlot}><Pressable accessibilityRole="button" accessibilityLabel="Log a hike" onPress={() => openLog()} style={s.logAction}><Feather name="plus" size={26} color="white" /></Pressable></View> : <Pressable key={item.tab} accessibilityRole="tab" accessibilityLabel={item.tab === 'Rankings' ? 'Your rankings' : item.label} accessibilityState={{ selected: tab === item.tab }} onPress={() => setTab(item.tab)} style={s.navItem}><Feather name={item.icon} size={23} color={tab === item.tab ? green : colors.muted} /><Text style={[s.navLabel, tab === item.tab && s.navSelected]}>{item.label}</Text></Pressable>)}
         </View>
-        <View accessibilityRole="tablist" style={s.tabs}>
-          {(['My hikes', 'Friends'] as const).map(item => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => setTab(item)} style={[s.tab, tab === item && s.activeTab]}><Text style={[s.tabText, tab === item && s.activeText]}>{item}</Text></Pressable>)}
-        </View>
-        {tab === 'Friends' ? <FriendsFeed onOpen={setSelectedHike} /> : hikes.length > 0 ? (
-          <ScrollView contentContainerStyle={s.list}>
-            <Text style={s.count}>{hikes.length} {hikes.length === 1 ? 'hike' : 'hikes'} logged</Text>
-            {hikes.map(hike => <Pressable key={hike.id} onPress={() => setSelectedHike(hike)} accessibilityRole="button" accessibilityLabel={`View ${hike.name}`} style={({ pressed }) => [s.hike, pressed && s.pressed]}><View style={s.hikeHeading}><Text style={[s.hikeName, s.flex]}>{hike.name}</Text><Feather name="chevron-right" size={22} color={green} /></View><Text style={s.ratingLine}>Enjoyment {hike.enjoyment}/5 {"\u00b7"} Difficulty {hike.difficulty}/5</Text>{!!hike.notes && <Text numberOfLines={2} style={s.notes}>{hike.notes}</Text>}</Pressable>)}
-          </ScrollView>
-        ) : (
-          <ScrollView contentContainerStyle={s.empty}>
-            <Feather name="map" size={36} color={green} />
-            <Text style={s.emptyTitle}>Your first hike starts here</Text>
-            <Text style={s.emptyBody}>Log a hike you’ve done. Rate the climb, remember the view.</Text>
-            <Pressable accessibilityRole="button" onPress={() => openLog()} style={({ pressed }) => [s.primary, pressed && s.pressed]}><Text style={s.primaryText}>Log your first hike</Text></Pressable>
-          </ScrollView>
-        )}
-        <Text style={s.previewNote}>Early preview · Hikes stay until the app restarts</Text>
         </>}
         <Modal visible={adding} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeLog}>
           <SafeAreaView style={s.safe}>
             <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <View style={s.sheetHeader}>
                 <Pressable onPress={closeLog} accessibilityRole="button" style={s.textButton}><Text style={s.link}>Cancel</Text></Pressable>
-                <Text style={s.sheetTitle}>Log a hike</Text>
-                <Pressable onPress={saveHike} disabled={!canSave} accessibilityRole="button" accessibilityState={{ disabled: !canSave }} style={s.textButton}><Text style={[s.link, !canSave && s.disabled]}>Save</Text></Pressable>
+                <Text style={s.sheetTitle}>{bounds ? 'Compare hikes' : 'Log a hike'}</Text>
+                <Pressable onPress={saveHike} disabled={!canSave || !!bounds} accessibilityRole="button" accessibilityState={{ disabled: !canSave || !!bounds }} style={s.textButton}><Text style={[s.link, (!canSave || !!bounds) && s.disabled]}>Save</Text></Pressable>
               </View>
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.form}>
+{bounds ? <View style={{ gap: 20 }}><Text style={s.title}>Which hike did you enjoy more?</Text><Text style={s.subtitle}>Think about the whole experience.</Text><Pressable accessibilityRole="button" onPress={() => compare(true)} style={s.primary}><Text style={s.primaryText}>{name.trim()}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => compare(false)} style={s.primary}><Text style={s.primaryText}>{hikes[Math.floor((bounds.low + bounds.high) / 2)].name}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setBounds(null)} style={s.textButton}><Text style={s.link}>Back to details</Text></Pressable></View> : <>
                 <Text style={s.label}>Hike name</Text>
                 <TextInput accessibilityLabel="Hike name" placeholder="e.g. Mount Tammany" placeholderTextColor="#70776F" value={name} onChangeText={setName} maxLength={120} style={s.input} autoCapitalize="words" />
-                <Rating label="Enjoyment" description="1 = not for me · 5 = loved it" value={enjoyment} onChange={setEnjoyment} />
+                <Text style={[s.label, { marginTop: 24 }]}>How was the hike?</Text><View style={{ gap: 8 }}>{(['Loved it', 'It was okay', 'Not for me'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: sentiment === value }} onPress={() => setSentiment(value)} style={[s.input, sentiment === value && { backgroundColor: colors.soft, borderColor: green }]}><Text style={s.link}>{value}</Text></Pressable>)}</View><Text style={s.subtitle}>Compare with past hikes. Scores unlock after seven ranked hikes.</Text>
                 <Rating label="Difficulty" description="1 = easy · 5 = very hard" value={difficulty} onChange={setDifficulty} />
-                <Text style={s.label}>Notes <Text style={s.optional}>(optional)</Text></Text>
+                {[{ label: 'Location', value: location, change: setLocation, numeric: false }, { label: 'Duration in minutes', value: duration, change: setDuration, numeric: true }, { label: 'Length in miles', value: length, change: setLength, numeric: true }].map(field => <View key={field.label} style={{ marginBottom: 20 }}><Text style={s.label}>{field.label} (optional)</Text><TextInput accessibilityLabel={field.label} value={field.value} onChangeText={field.change} keyboardType={field.numeric ? 'decimal-pad' : 'default'} style={s.input} maxLength={field.numeric ? 8 : 120} /></View>)}<Text style={s.subtitle}>Duration and length must be positive numbers.</Text>{!!formError && <Text accessibilityRole="alert" style={s.notes}>{formError}</Text>}<Text style={s.label}>Notes <Text style={s.optional}>(optional)</Text></Text>
                 <TextInput accessibilityLabel="Hike notes" placeholder="What would you want to remember?" placeholderTextColor="#70776F" value={notes} onChangeText={setNotes} multiline maxLength={2000} style={[s.input, s.notesInput]} textAlignVertical="top" />
+                </>}
               </ScrollView>
             </KeyboardAvoidingView>
           </SafeAreaView>
@@ -108,6 +118,12 @@ function Rating({ label, description, value, onChange }: { label: string; descri
   </View>;
 }
 const s = StyleSheet.create({
+  menu: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  bottomNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 4, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, backgroundColor: colors.white },
+  navSlot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 52, minWidth: 48, gap: 5 },
+  navLabel: { color: colors.muted, fontSize: 11, textAlign: 'center' }, navSelected: { color: green, fontWeight: '700' },
+  logAction: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: green, borderRadius: 26, width: 52, justifyContent: 'center', minHeight: 52 },
   safe: { flex: 1, backgroundColor: colors.cream }, flex: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },

@@ -6,6 +6,9 @@ export type Hike = {
   notes: string;
   location?: string;
   photo?: string;
+  durationMinutes?: number;
+  lengthMiles?: number;
+  sentiment?: 'Loved it' | 'It was okay' | 'Not for me';
 };
 
 export type FriendReview = Hike & { author: string; initials: string; when: string };

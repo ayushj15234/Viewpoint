@@ -8,7 +8,7 @@ export const colors = {
   line: '#D6DCCE', soft: '#E9EEDF', white: '#FFFFFF',
 };
 
-function TrailPhoto({ uri, large = false }: { uri: string; large?: boolean }) {
+export function TrailPhoto({ uri, large = false }: { uri: string; large?: boolean }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   return <View style={[s.photo, large && s.largePhoto]}>
@@ -27,16 +27,19 @@ export function ReviewRatings({ hike }: { hike: Hike }) {
   </View>;
 }
 
-export function FriendsFeed({ onOpen }: { onOpen: (hike: FriendReview) => void }) {
+export function FriendsFeed({ onOpen, header, reviews = friendReviews, saved = [], onSave }: { onOpen: (hike: FriendReview) => void; header?: React.ReactNode; reviews?: FriendReview[]; saved?: string[]; onSave?: (id: string) => void }) {
   return <ScrollView contentContainerStyle={s.feed}>
+    {header}
     <View style={s.preview}>
       <Feather name="info" size={17} color={colors.green} />
       <Text style={s.previewText}>Sample feed · People and reviews are fictional.</Text>
     </View>
-    {friendReviews.map(review => <View key={review.id} style={s.post}>
+    {reviews.length === 0 && <Text style={s.end}>No hikes here yet. Try another search or save a hike from the feed.</Text>}
+    {reviews.map(review => <View key={review.id} style={s.post}>
       <View style={s.person}>
         <View style={s.avatar}><Text style={s.initials}>{review.initials}</Text></View>
         <View style={s.personCopy}><Text style={s.author}>{review.author}</Text><Text style={s.time}>Logged a hike · {review.when}</Text></View>
+        {onSave && <Pressable accessibilityRole="button" accessibilityLabel={`${saved.includes(review.id) ? 'Remove' : 'Save'} ${review.name} ${saved.includes(review.id) ? 'from' : 'to'} Next up`} accessibilityState={{ selected: saved.includes(review.id) }} onPress={() => onSave(review.id)} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}><Feather name={saved.includes(review.id) ? 'check' : 'bookmark'} size={21} color={colors.green} /></Pressable>}
       </View>
       <Pressable onPress={() => onOpen(review)} accessibilityRole="button" accessibilityLabel={`View ${review.name}, reviewed by ${review.author}`} style={({ pressed }) => pressed && s.pressed}>
         <View style={s.trailHeading}><View style={s.trailCopy}><Text style={s.trailName}>{review.name}</Text><Text style={s.location}>{review.location}</Text></View><Feather name="chevron-right" size={22} color={colors.green} /></View>
@@ -46,27 +49,27 @@ export function FriendsFeed({ onOpen }: { onOpen: (hike: FriendReview) => void }
         <Text style={s.viewDetails}>View hike & review</Text>
       </Pressable>
     </View>)}
-    <Text style={s.end}>You’re all caught up on the sample feed.</Text>
+    {reviews.length > 0 && <Text style={s.end}>You’re all caught up on the sample feed.</Text>}
   </ScrollView>;
 }
 
-export function HikeDetails({ hike, onBack, onLog }: { hike: Hike | FriendReview; onBack: () => void; onLog: (name: string) => void }) {
+export function HikeDetails({ hike, onBack, onLog, personalScore, rankedCount = 0, backLabel = 'Your lists' }: { hike: Hike | FriendReview; onBack: () => void; onLog: (name: string) => void; personalScore?: number; rankedCount?: number; backLabel?: string }) {
   const sample = 'author' in hike;
   return <View style={s.detail}>
     <View style={s.navigation}>
-      <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={`Back to ${sample ? 'Friends' : 'My hikes'}`} style={s.back}><Feather name="arrow-left" size={22} color={colors.green} /><Text style={s.backText}>{sample ? 'Friends' : 'My hikes'}</Text></Pressable>
+      <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={`Back to ${backLabel}`} style={s.back}><Feather name="arrow-left" size={22} color={colors.green} /><Text style={s.backText}>{backLabel}</Text></Pressable>
       <Text style={s.navigationTitle}>Hike details</Text>
     </View>
     <ScrollView contentContainerStyle={s.detailContent}>
       <Text accessibilityRole="header" style={s.detailTitle}>{hike.name}</Text>
-      {hike.location && <Text style={s.detailLocation}>{hike.location}</Text>}
+      {hike.location && <Text style={s.detailLocation}>{hike.location}</Text>}{(hike.durationMinutes !== undefined || hike.lengthMiles !== undefined) && <Text style={s.detailLocation}>{[hike.durationMinutes !== undefined ? `${hike.durationMinutes} min` : null, hike.lengthMiles !== undefined ? `${hike.lengthMiles} mi` : null].filter(Boolean).join(' / ')}</Text>}
       {sample && <Text style={s.sampleLabel}>Sample hike & review</Text>}
       {hike.photo ? <View style={s.detailPhoto}><TrailPhoto uri={hike.photo} large /><Text style={s.caption}>Illustrative scenery · Unsplash</Text></View> : <View style={s.noPhoto}><Feather name="camera" size={24} color={colors.muted} /><Text style={s.noPhotoText}>No photos added to this hike yet.</Text></View>}
       <View style={s.reviewSection}>
         <Text accessibilityRole="header" style={s.sectionTitle}>{sample ? `${hike.author.split(' ')[0]}’s review` : 'Your review'}</Text>
-        <Text style={s.sectionHelp}>Personal ratings, each out of 5.</Text>
+        <Text style={s.sectionHelp}>{sample ? 'Sample ratings, each out of 5.' : personalScore === undefined ? `Score locked - ${rankedCount}/7 hikes ranked` : 'Your score comes from comparisons within your list.'}</Text>
         <View style={s.detailRatings}>
-          <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.enjoyment}<Text style={s.outOf}> / 5</Text></Text><Text style={s.ratingLabel}>Enjoyment</Text><Text style={s.ratingMeaning}>{['Not for me', 'It was okay', 'Liked it', 'Really liked it', 'Loved it'][hike.enjoyment - 1]}</Text></View>
+          {sample ? <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.enjoyment}<Text style={s.outOf}> / 5</Text></Text><Text style={s.ratingLabel}>Enjoyment</Text></View> : <View style={s.ratingColumn}>{personalScore === undefined ? <Feather name="lock" size={26} color={colors.green} /> : <Text style={s.detailScore}>{personalScore.toFixed(1)}<Text style={s.outOf}> / 10</Text></Text>}<Text style={s.ratingLabel}>Your personal score</Text><Text style={s.ratingMeaning}>{personalScore === undefined ? 'Revealed after seven ranked hikes' : 'Relative to your other hikes'}</Text></View>}
           <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.difficulty}<Text style={s.outOf}> / 5</Text></Text><Text style={s.ratingLabel}>Difficulty</Text><Text style={s.ratingMeaning}>{['Easy', 'Fairly easy', 'Moderate', 'Hard', 'Very hard'][hike.difficulty - 1]}</Text></View>
         </View>
         <Text accessibilityRole="header" style={s.sectionTitle}>Notes</Text>
