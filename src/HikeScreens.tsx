@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import { friendReviews, FriendReview, Hike } from './hikes';
+import { difficultyLabels, friendReviews, FriendReview, Hike } from './hikes';
 
 export const colors = {
   green: '#173F32', cream: '#FAF8F1', ink: '#20382C', muted: '#5F6E63',
@@ -20,10 +20,10 @@ export function TrailPhoto({ uri, large = false }: { uri: string; large?: boolea
   </View>;
 }
 
-export function ReviewRatings({ hike }: { hike: Hike }) {
+export function ReviewRatings({ hike }: { hike: FriendReview }) {
   return <View style={s.ratings}>
-    <Text style={s.rating}><Text style={s.score}>{hike.enjoyment}/5</Text> enjoyment</Text>
-    <Text style={s.rating}><Text style={s.score}>{hike.difficulty}/5</Text> difficulty</Text>
+    <Text style={s.rating}><Text style={s.score}>{hike.score.toFixed(1)}</Text> · {hike.sentiment}</Text>
+    <Text style={s.rating}><Text style={s.score}>{difficultyLabels[hike.difficulty - 1]}</Text> difficulty</Text>
   </View>;
 }
 
@@ -67,10 +67,10 @@ export function HikeDetails({ hike, onBack, onLog, personalScore, rankedCount = 
       {hike.photo ? <View style={s.detailPhoto}><TrailPhoto uri={hike.photo} large /><Text style={s.caption}>Illustrative scenery · Unsplash</Text></View> : <View style={s.noPhoto}><Feather name="camera" size={24} color={colors.muted} /><Text style={s.noPhotoText}>No photos added to this hike yet.</Text></View>}
       <View style={s.reviewSection}>
         <Text accessibilityRole="header" style={s.sectionTitle}>{sample ? `${hike.author.split(' ')[0]}’s review` : 'Your review'}</Text>
-        <Text style={s.sectionHelp}>{sample ? 'Sample ratings, each out of 5.' : personalScore === undefined ? `Score locked - ${rankedCount}/7 hikes ranked` : 'Your score comes from comparisons within your list.'}</Text>
+        <Text style={s.sectionHelp}>{sample ? 'Sample review · Scores come from comparisons, out of 10.' : personalScore === undefined ? `Score locked - ${rankedCount}/7 hikes ranked` : 'Your score comes from comparisons within your list.'}</Text>
         <View style={s.detailRatings}>
-          {sample ? <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.enjoyment}<Text style={s.outOf}> / 5</Text></Text><Text style={s.ratingLabel}>Enjoyment</Text></View> : <View style={s.ratingColumn}>{personalScore === undefined ? <Feather name="lock" size={26} color={colors.green} /> : <Text style={s.detailScore}>{personalScore.toFixed(1)}<Text style={s.outOf}> / 10</Text></Text>}<Text style={s.ratingLabel}>Your personal score</Text><Text style={s.ratingMeaning}>{personalScore === undefined ? 'Revealed after seven ranked hikes' : 'Relative to your other hikes'}</Text></View>}
-          <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.difficulty}<Text style={s.outOf}> / 5</Text></Text><Text style={s.ratingLabel}>Difficulty</Text><Text style={s.ratingMeaning}>{['Easy', 'Fairly easy', 'Moderate', 'Hard', 'Very hard'][hike.difficulty - 1]}</Text></View>
+          {sample ? <View style={s.ratingColumn}><Text style={s.detailScore}>{hike.score.toFixed(1)}<Text style={s.outOf}> / 10</Text></Text><Text style={s.ratingLabel}>{hike.author.split(' ')[0]}’s score</Text><Text style={s.ratingMeaning}>{hike.sentiment}</Text></View> : <View style={s.ratingColumn}>{personalScore === undefined ? <Feather name="lock" size={26} color={colors.green} /> : <Text style={s.detailScore}>{personalScore.toFixed(1)}<Text style={s.outOf}> / 10</Text></Text>}<Text style={s.ratingLabel}>Your personal score</Text><Text style={s.ratingMeaning}>{personalScore === undefined ? 'Revealed after seven ranked hikes' : 'Relative to your other hikes'}</Text></View>}
+          <View style={s.ratingColumn}><Text style={s.detailScore}>{difficultyLabels[hike.difficulty - 1]}</Text><Text style={s.ratingLabel}>Difficulty</Text><Text style={s.ratingMeaning}>{sample ? 'How hard it felt to them' : 'How hard it felt to you'}</Text></View>
         </View>
         <Text accessibilityRole="header" style={s.sectionTitle}>Notes</Text>
         <Text style={s.detailNotes}>{hike.notes || 'No notes added to this hike.'}</Text>
@@ -103,7 +103,7 @@ const s = StyleSheet.create({
   photoFallback: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 }, photoStatus: { color: colors.muted, fontSize: 13 },
   viewDetails: { color: colors.green, fontWeight: '600', fontSize: 14, paddingTop: 16, paddingBottom: 4 },
   pressed: { opacity: 0.65 }, end: { textAlign: 'center', color: colors.muted, fontSize: 13, lineHeight: 20, paddingVertical: 20 },
-  detail: { flex: 1 }, navigation: { paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  detail: { flex: 1 }, navigation: { paddingHorizontal: 24, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   back: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 }, backText: { color: colors.green, fontSize: 16 },
   navigationTitle: { color: colors.muted, fontSize: 14, flexShrink: 1 }, detailContent: { padding: 24, paddingBottom: 40 },
   detailTitle: { color: colors.ink, fontWeight: '700', fontSize: 32, letterSpacing: -0.8 }, detailLocation: { color: colors.muted, fontSize: 16, marginTop: 7 },

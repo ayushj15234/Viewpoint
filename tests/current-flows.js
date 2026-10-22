@@ -20,7 +20,7 @@ async page => {
     check(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), 'Empty form must not save');
     await page.getByRole('textbox', { name: 'Hike name', exact: true }).fill(`Test trail ${i}`);
     await page.getByRole('radio', { name: 'Loved it', exact: true }).click();
-    await page.getByRole('radio', { name: 'Difficulty: 3 out of 5', exact: true }).click();
+    await page.getByRole('radio', { name: 'Difficulty: Moderate', exact: true }).click();
     await page.getByRole('textbox', { name: 'Location', exact: true }).fill('New York');
     await page.getByRole('textbox', { name: 'Duration in minutes' }).fill('-1');
     check(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), 'Invalid duration blocked');

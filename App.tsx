@@ -5,7 +5,7 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { friendReviews, Hike, FriendReview } from './src/hikes';
+import { difficultyLabels, friendReviews, Hike, FriendReview } from './src/hikes';
 import { YourLists } from './src/YourLists';
 import { comparisonBounds, personalScore } from './src/ranking';
 import { colors, HikeDetails } from './src/HikeScreens';
@@ -47,7 +47,7 @@ export default function App() {
     if (next.low === next.high) finishRanking(next.low); else setBounds(next);
   }
   function finishRanking(index: number) {
-    const hike: Hike = { id: Date.now().toString(), name: name.trim(), enjoyment: 0, sentiment, difficulty, notes: notes.trim(), location: location.trim() || undefined, durationMinutes: duration.trim() ? Number(duration) : undefined, lengthMiles: length.trim() ? Number(length) : undefined };
+    const hike: Hike = { id: Date.now().toString(), name: name.trim(), sentiment, difficulty, notes: notes.trim(), location: location.trim() || undefined, durationMinutes: duration.trim() ? Number(duration) : undefined, lengthMiles: length.trim() ? Number(length) : undefined };
     setHikes(current => [...current.slice(0, index), hike, ...current.slice(index)]);
     setBounds(null);
     setAdding(false); setSelectedHike(null); setTab('My hikes');
@@ -97,11 +97,11 @@ export default function App() {
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.form}>
 {bounds ? <View style={{ gap: 20 }}><Text style={s.title}>Which hike did you enjoy more?</Text><Text style={s.subtitle}>Think about the whole experience.</Text><Pressable accessibilityRole="button" onPress={() => compare(true)} style={s.primary}><Text style={s.primaryText}>{name.trim()}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => compare(false)} style={s.primary}><Text style={s.primaryText}>{hikes[Math.floor((bounds.low + bounds.high) / 2)].name}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setBounds(null)} style={s.textButton}><Text style={s.link}>Back to details</Text></Pressable></View> : <>
                 <Text style={s.label}>Hike name</Text>
-                <TextInput accessibilityLabel="Hike name" placeholder="e.g. Mount Tammany" placeholderTextColor="#70776F" value={name} onChangeText={setName} maxLength={120} style={s.input} autoCapitalize="words" />
+                <TextInput accessibilityLabel="Hike name" placeholder="e.g. Mount Tammany" placeholderTextColor={colors.muted} value={name} onChangeText={setName} maxLength={120} style={s.input} autoCapitalize="words" />
                 <Text style={[s.label, { marginTop: 24 }]}>How was the hike?</Text><View style={{ gap: 8 }}>{(['Loved it', 'It was okay', 'Not for me'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: sentiment === value }} onPress={() => setSentiment(value)} style={[s.input, sentiment === value && { backgroundColor: colors.soft, borderColor: green }]}><Text style={s.link}>{value}</Text></Pressable>)}</View><Text style={s.subtitle}>Compare with past hikes. Scores unlock after seven ranked hikes.</Text>
-                <Rating label="Difficulty" description="1 = easy · 5 = very hard" value={difficulty} onChange={setDifficulty} />
+                <Rating label="Difficulty" description="How hard did it feel to you?" value={difficulty} onChange={setDifficulty} />
                 {[{ label: 'Location', value: location, change: setLocation, numeric: false }, { label: 'Duration in minutes', value: duration, change: setDuration, numeric: true }, { label: 'Length in miles', value: length, change: setLength, numeric: true }].map(field => <View key={field.label} style={{ marginBottom: 20 }}><Text style={s.label}>{field.label} (optional)</Text><TextInput accessibilityLabel={field.label} value={field.value} onChangeText={field.change} keyboardType={field.numeric ? 'decimal-pad' : 'default'} style={s.input} maxLength={field.numeric ? 8 : 120} /></View>)}<Text style={s.subtitle}>Duration and length must be positive numbers.</Text>{!!formError && <Text accessibilityRole="alert" style={s.notes}>{formError}</Text>}<Text style={s.label}>Notes <Text style={s.optional}>(optional)</Text></Text>
-                <TextInput accessibilityLabel="Hike notes" placeholder="What would you want to remember?" placeholderTextColor="#70776F" value={notes} onChangeText={setNotes} multiline maxLength={2000} style={[s.input, s.notesInput]} textAlignVertical="top" />
+                <TextInput accessibilityLabel="Hike notes" placeholder="What would you want to remember?" placeholderTextColor={colors.muted} value={notes} onChangeText={setNotes} multiline maxLength={2000} style={[s.input, s.notesInput]} textAlignVertical="top" />
                 </>}
               </ScrollView>
             </KeyboardAvoidingView>
@@ -114,7 +114,7 @@ export default function App() {
 function Rating({ label, description, value, onChange }: { label: string; description: string; value: number; onChange: (value: number) => void }) {
   return <View style={s.rating}>
     <Text style={s.label}>{label}</Text><Text style={s.ratingHelp}>{description}</Text>
-    <View style={s.ratingOptions}>{[1, 2, 3, 4, 5].map(number => <Pressable key={number} accessibilityRole="radio" accessibilityLabel={`${label}: ${number} out of 5`} accessibilityState={{ checked: value === number }} onPress={() => onChange(number)} style={[s.ratingButton, value === number && s.selectedRating]}><Text style={[s.ratingNumber, value === number && s.primaryText]}>{number}</Text></Pressable>)}</View>
+    <View style={s.ratingOptions}>{difficultyLabels.map((option, i) => <Pressable key={option} accessibilityRole="radio" accessibilityLabel={`${label}: ${option}`} accessibilityState={{ checked: value === i + 1 }} onPress={() => onChange(i + 1)} style={[s.ratingButton, value === i + 1 && s.selectedRating]}><Text style={[s.ratingNumber, value === i + 1 && s.primaryText]}>{option}</Text></Pressable>)}</View>
   </View>;
 }
 const s = StyleSheet.create({
@@ -140,19 +140,19 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 22, fontWeight: '600', color: colors.ink, textAlign: 'center', marginTop: 24 },
   emptyBody: { fontSize: 16, color: colors.muted, lineHeight: 24, textAlign: 'center', maxWidth: 300, marginTop: 10 },
   primary: { marginTop: 28, minHeight: 50, paddingHorizontal: 24, paddingVertical: 14, backgroundColor: green, borderRadius: 12, justifyContent: 'center' },
-  primaryText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' },
+  primaryText: { fontSize: 16, fontWeight: '600', color: colors.white, textAlign: 'center' },
   previewNote: { fontSize: 12, color: colors.muted, textAlign: 'center', paddingHorizontal: 24, paddingVertical: 16 },
   list: { paddingHorizontal: 24, paddingBottom: 24 }, count: { fontSize: 13, color: colors.muted, marginTop: 22, marginBottom: 4 },
   hikeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   hike: { paddingVertical: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line }, hikeName: { fontSize: 20, fontWeight: '600', color: colors.ink },
   ratingLine: { fontSize: 14, lineHeight: 22, color: green, marginTop: 7 }, notes: { fontSize: 16, lineHeight: 24, color: colors.muted, marginTop: 10 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, paddingHorizontal: 12, paddingVertical: 8 },
-  textButton: { minWidth: 64, minHeight: 48, justifyContent: 'center', alignItems: 'center' }, link: { color: green, fontSize: 17 }, disabled: { color: '#777C76' },
+  textButton: { minWidth: 64, minHeight: 48, justifyContent: 'center', alignItems: 'center' }, link: { color: green, fontSize: 17 }, disabled: { color: colors.muted },
   sheetTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' }, form: { padding: 24, paddingBottom: 48 },
   label: { fontSize: 17, color: colors.ink, fontWeight: '600', marginBottom: 10 }, optional: { fontWeight: '400', color: colors.muted, fontSize: 15 },
-  input: { borderWidth: 1, borderColor: '#BCC6BC', borderRadius: 10, padding: 14, fontSize: 17, color: colors.ink, backgroundColor: '#FFFFFF', minHeight: 52 }, notesInput: { minHeight: 120 },
-  rating: { marginVertical: 28 }, ratingHelp: { color: colors.muted, fontSize: 14, marginBottom: 14 }, ratingOptions: { flexDirection: 'row', gap: 10 },
-  ratingButton: { flex: 1, minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: '#BCC6BC', alignItems: 'center', justifyContent: 'center' },
+  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: 14, fontSize: 17, color: colors.ink, backgroundColor: colors.white, minHeight: 52 }, notesInput: { minHeight: 120 },
+  rating: { marginVertical: 28 }, ratingHelp: { color: colors.muted, fontSize: 14, marginBottom: 14 }, ratingOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  ratingButton: { minHeight: 48, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   selectedRating: { backgroundColor: green, borderColor: green }, ratingNumber: { color: colors.ink, fontSize: 17, fontWeight: '500' },
 });
 

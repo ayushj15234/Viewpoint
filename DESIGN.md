@@ -1,6 +1,6 @@
 # Viewpoint design
 
-Native app screen, operate mode. Follow the user's Beli reference with restrained social-list conventions: system typography, flat content rows, white-green surfaces, and a single forest-green action color. Friend activity uses explicitly labeled fictional reviews until accounts are connected. No decorative metrics.
+Native app screen, operate mode. Restrained social-list conventions: system typography, flat content rows, white-green surfaces, and a single forest-green action color. Friend activity uses explicitly labeled fictional reviews until accounts are connected. No decorative metrics.
 
 Tokens: background #FAF8F1; ink #20382C; secondary #5F6E63; action #173F32; divider #D6DCCE. Main spacing 24, control minimum 48, input radius 10, button radius 12. Screen titles 34/700; body 16�17. Typography scales with system settings.
 
@@ -12,6 +12,6 @@ Your lists replaces the My hikes destination. Ranked and Want to hike lists shar
 
 Bottom navigation now has five equal-width positions: Feed, Your lists, centered plus action, Rankings, and Profile. Rankings is a dedicated personal ordered trail list, with the same seven-hike score lock. Profile shows session journal information and working links to lists, rankings, and settings. Active destinations tint both icon and label evergreen; other destinations use muted ink. At 320px the plus stays at the horizontal midpoint and all destinations fit without horizontal page overflow (browser verified).
 
-Personal ranking uses three sentiment groups and binary comparisons within the chosen group. Seven distinct named hikes unlock relative 0–10 scores; the first six show a lock and progress. Hikes stay browsable throughout. Scores interpolate list position and update with new rankings; this is a Viewpoint prototype, not a reproduction of Beli's proprietary scoring. Friend sample ratings remain separate, on their original 1–5 scale. All data remains temporary.
+Personal ranking uses three sentiment groups and binary comparisons within the chosen group. Seven distinct named hikes unlock 1–10 scores; the first six show a lock and progress. Hikes stay browsable throughout. Each sentiment owns a band (Loved it 7–10, It was okay 4–6.9, Not for me 1–3.9) and scores interpolate position within it. A Not for me hike loses 0.4 per difficulty level above Moderate; loved or okay hikes are never docked for difficulty. Scores never exceed a higher-ranked hike’s. Friend sample reviews carry a sentiment and a 1–10 score. Difficulty displays as words (Easy to Very hard), never numbers. All data remains temporary.
 
 Current scope: tappable My hikes list, labeled sample Friends feed, hike details with personal ratings and notes, illustrative photos with loading/error states, and temporary session logging. Details include a back action and Android hardware-back support. Log this hike prefills the name and saves a separate personal review. Light appearance matches app.json. Native visual verification is pending a phone or emulator.
