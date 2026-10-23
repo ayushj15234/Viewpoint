@@ -5,7 +5,7 @@ import { difficultyLabels, friendReviews, FriendReview, Hike } from './hikes';
 
 export const colors = {
   green: '#173F32', cream: '#FAF8F1', ink: '#20382C', muted: '#5F6E63',
-  line: '#D6DCCE', soft: '#E9EEDF', white: '#FFFFFF',
+  line: '#D6DCCE', soft: '#E9EEDF', white: '#FFFFFF', error: '#A3362A',
 };
 
 export function TrailPhoto({ uri, large = false }: { uri: string; large?: boolean }) {

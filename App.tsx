@@ -70,7 +70,9 @@ export default function App() {
       ]);
     } else setAdding(false);
   }
-  const canSave = Boolean(name.trim() && sentiment && difficulty && (!duration.trim() || (Number.isFinite(Number(duration)) && Number(duration) > 0)) && (!length.trim() || (Number.isFinite(Number(length)) && Number(length) > 0)));
+  const positive = (value: string) => !value.trim() || (Number.isFinite(Number(value)) && Number(value) > 0);
+  const missing = [!name.trim() && 'a hike name', !sentiment && 'how it went', !difficulty && 'the difficulty'].filter(Boolean);
+  const canSave = Boolean(!missing.length && positive(duration) && positive(length));
   return (
     <SafeAreaProvider>
       <SafeAreaView style={s.safe}>
@@ -83,7 +85,7 @@ export default function App() {
         {tab === 'Friends' ? <HomeScreen saved={saved} onSave={id => setSaved(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])} onOpen={setSelectedHike} /> : tab === 'Rankings' ? <RankingsScreen hikes={hikes} onOpen={setSelectedHike} onAdd={() => openLog()} /> : tab === 'Profile' ? <ProfileScreen hikes={hikes} savedCount={saved.length} onLists={() => setTab('My hikes')} onRankings={() => setTab('Rankings')} onSettings={() => setSettings(true)} /> : <YourLists hikes={hikes} saved={friendReviews.filter(hike => saved.includes(hike.id))} onOpen={setSelectedHike} />}
 
         <View style={s.bottomNav}>
-          {([{ tab: 'Friends', label: 'Feed', icon: 'home' }, { tab: 'My hikes', label: 'Your lists', icon: 'list' }, { tab: 'add', label: 'Log a hike', icon: 'plus' }, { tab: 'Rankings', label: 'Rankings', icon: 'bar-chart-2' }, { tab: 'Profile', label: 'Profile', icon: 'user' }] as const).map(item => item.tab === 'add' ? <View key="add" style={s.navSlot}><Pressable accessibilityRole="button" accessibilityLabel="Log a hike" onPress={() => openLog()} style={s.logAction}><Feather name="plus" size={26} color="white" /></Pressable></View> : <Pressable key={item.tab} accessibilityRole="tab" accessibilityLabel={item.tab === 'Rankings' ? 'Your rankings' : item.label} accessibilityState={{ selected: tab === item.tab }} onPress={() => setTab(item.tab)} style={s.navItem}><Feather name={item.icon} size={23} color={tab === item.tab ? green : colors.muted} /><Text style={[s.navLabel, tab === item.tab && s.navSelected]}>{item.label}</Text></Pressable>)}
+          {([{ tab: 'Friends', label: 'Feed', icon: 'home' }, { tab: 'My hikes', label: 'Your lists', icon: 'list' }, { tab: 'add', label: 'Log a hike', icon: 'plus' }, { tab: 'Rankings', label: 'Rankings', icon: 'bar-chart-2' }, { tab: 'Profile', label: 'Profile', icon: 'user' }] as const).map(item => item.tab === 'add' ? <Pressable key="add" accessibilityRole="button" accessibilityLabel="Log a hike" onPress={() => openLog()} style={s.navItem}><View style={s.logIcon}><Feather name="plus" size={24} color={colors.white} /></View></Pressable> : <Pressable key={item.tab} accessibilityRole="tab" accessibilityLabel={item.tab === 'Rankings' ? 'Your rankings' : item.label} accessibilityState={{ selected: tab === item.tab }} onPress={() => setTab(item.tab)} style={s.navItem}><Feather name={item.icon} size={23} color={tab === item.tab ? green : colors.muted} /><Text style={[s.navLabel, tab === item.tab && s.navSelected]}>{item.label}</Text></Pressable>)}
         </View>
         </>}
         <Modal visible={adding} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeLog}>
@@ -96,11 +98,12 @@ export default function App() {
               </View>
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.form}>
 {bounds ? <View style={{ gap: 20 }}><Text style={s.title}>Which hike did you enjoy more?</Text><Text style={s.subtitle}>Think about the whole experience.</Text><Pressable accessibilityRole="button" onPress={() => compare(true)} style={s.primary}><Text style={s.primaryText}>{name.trim()}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => compare(false)} style={s.primary}><Text style={s.primaryText}>{hikes[Math.floor((bounds.low + bounds.high) / 2)].name}</Text></Pressable><Pressable accessibilityRole="button" onPress={() => setBounds(null)} style={s.textButton}><Text style={s.link}>Back to details</Text></Pressable></View> : <>
+                {missing.length > 0 && <Text style={[s.subtitle, { marginTop: 0, marginBottom: 20 }]}>To save, add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')}.</Text>}
                 <Text style={s.label}>Hike name</Text>
-                <TextInput accessibilityLabel="Hike name" placeholder="e.g. Mount Tammany" placeholderTextColor={colors.muted} value={name} onChangeText={setName} maxLength={120} style={s.input} autoCapitalize="words" />
+                <TextInput accessibilityLabel="Hike name" placeholder="e.g. Mount Tammany" placeholderTextColor={colors.muted} value={name} onChangeText={value => { setName(value); setFormError(''); }} maxLength={120} style={s.input} autoCapitalize="words" />{!!formError && <Text accessibilityRole="alert" style={s.fieldError}>{formError}</Text>}
                 <Text style={[s.label, { marginTop: 24 }]}>How was the hike?</Text><View style={{ gap: 8 }}>{(['Loved it', 'It was okay', 'Not for me'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: sentiment === value }} onPress={() => setSentiment(value)} style={[s.input, sentiment === value && { backgroundColor: colors.soft, borderColor: green }]}><Text style={s.link}>{value}</Text></Pressable>)}</View><Text style={s.subtitle}>Compare with past hikes. Scores unlock after seven ranked hikes.</Text>
                 <Rating label="Difficulty" description="How hard did it feel to you?" value={difficulty} onChange={setDifficulty} />
-                {[{ label: 'Location', value: location, change: setLocation, numeric: false }, { label: 'Duration in minutes', value: duration, change: setDuration, numeric: true }, { label: 'Length in miles', value: length, change: setLength, numeric: true }].map(field => <View key={field.label} style={{ marginBottom: 20 }}><Text style={s.label}>{field.label} (optional)</Text><TextInput accessibilityLabel={field.label} value={field.value} onChangeText={field.change} keyboardType={field.numeric ? 'decimal-pad' : 'default'} style={s.input} maxLength={field.numeric ? 8 : 120} /></View>)}<Text style={s.subtitle}>Duration and length must be positive numbers.</Text>{!!formError && <Text accessibilityRole="alert" style={s.notes}>{formError}</Text>}<Text style={s.label}>Notes <Text style={s.optional}>(optional)</Text></Text>
+                {[{ label: 'Location', value: location, change: setLocation, numeric: false }, { label: 'Duration in minutes', value: duration, change: setDuration, numeric: true }, { label: 'Length in miles', value: length, change: setLength, numeric: true }].map(field => <View key={field.label} style={{ marginBottom: 20 }}><Text style={s.label}>{field.label} (optional)</Text><TextInput accessibilityLabel={field.label} value={field.value} onChangeText={field.change} keyboardType={field.numeric ? 'decimal-pad' : 'default'} style={s.input} maxLength={field.numeric ? 8 : 120} />{!positive(field.value) && <Text accessibilityRole="alert" style={s.fieldError}>Enter a number greater than 0.</Text>}</View>)}<Text style={s.label}>Notes <Text style={s.optional}>(optional)</Text></Text>
                 <TextInput accessibilityLabel="Hike notes" placeholder="What would you want to remember?" placeholderTextColor={colors.muted} value={notes} onChangeText={setNotes} multiline maxLength={2000} style={[s.input, s.notesInput]} textAlignVertical="top" />
                 </>}
               </ScrollView>
@@ -120,10 +123,10 @@ function Rating({ label, description, value, onChange }: { label: string; descri
 const s = StyleSheet.create({
   menu: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   bottomNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 4, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, backgroundColor: colors.white },
-  navSlot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 52, minWidth: 48, gap: 5 },
+  // Matches the other tabs' icon + gap + label height (23 + 5 + ~14).
+  logIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: green, alignItems: 'center', justifyContent: 'center' },
   navLabel: { color: colors.muted, fontSize: 11, textAlign: 'center' }, navSelected: { color: green, fontWeight: '700' },
-  logAction: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: green, borderRadius: 26, width: 52, justifyContent: 'center', minHeight: 52 },
   safe: { flex: 1, backgroundColor: colors.cream }, flex: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
@@ -145,6 +148,7 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 24, paddingBottom: 24 }, count: { fontSize: 13, color: colors.muted, marginTop: 22, marginBottom: 4 },
   hikeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   hike: { paddingVertical: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line }, hikeName: { fontSize: 20, fontWeight: '600', color: colors.ink },
+  fieldError: { fontSize: 15, lineHeight: 21, color: colors.error, marginTop: 8 },
   ratingLine: { fontSize: 14, lineHeight: 22, color: green, marginTop: 7 }, notes: { fontSize: 16, lineHeight: 24, color: colors.muted, marginTop: 10 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, paddingHorizontal: 12, paddingVertical: 8 },
   textButton: { minWidth: 64, minHeight: 48, justifyContent: 'center', alignItems: 'center' }, link: { color: green, fontSize: 17 }, disabled: { color: colors.muted },
