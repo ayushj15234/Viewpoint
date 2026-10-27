@@ -29,7 +29,7 @@ async page => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     if (i > 1) {
       await page.getByText('Which hike did you enjoy more?', { exact: true }).waitFor();
-      while (await page.getByRole('button', { name: `Test trail ${i}`, exact: true }).count()) await page.getByRole('button', { name: `Test trail ${i}`, exact: true }).click();
+      while (await page.getByRole('button', { name: `I enjoyed Test trail ${i} more`, exact: true }).count()) await page.getByRole('button', { name: `I enjoyed Test trail ${i} more`, exact: true }).click();
     }
     await page.getByRole('heading', { name: 'Your lists' }).waitFor();
     if (i < 7) await page.getByText(`Your scores unlock at 7 hikes`, { exact: false }).waitFor();
